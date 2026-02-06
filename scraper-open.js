@@ -47,17 +47,11 @@ function fetchOpenTenders() {
       
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          processOpenTenders(json);
-          resolve({ success: true, message: 'Open tenders processed' });
-        } catch (e) {
-          // API might not support this endpoint, fall back to scraping
-          console.log('OCDS search failed, using alternative approach...');
-          fallbackScrapeOpenTenders()
-            .then(resolve)
-            .catch(reject);
-        }
+        // Search API doesn't work reliably, use Contract Notice approach instead
+        console.log('Using Contract Notice published endpoint...');
+        fallbackScrapeOpenTenders()
+          .then(resolve)
+          .catch(reject);
       });
     });
     

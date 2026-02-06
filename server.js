@@ -27,6 +27,7 @@ app.get('/api/tenders', (req, res) => {
   const limit = parseInt(req.query.limit) || 100;
   const state = req.query.state;
   const status = req.query.status; // 'open', 'awarded', or 'all'
+  const category = req.query.category;
   
   try {
     let tenders;
@@ -39,6 +40,11 @@ app.get('/api/tenders', (req, res) => {
       tenders = getTendersByState.all(state, limit);
     } else {
       tenders = getRecentTenders.all(limit);
+    }
+    
+    // Filter by category if specified
+    if (category && category !== 'ALL') {
+      tenders = tenders.filter(t => t.category === category);
     }
     
     res.json({
@@ -69,6 +75,27 @@ app.get('/api/stats', (req, res) => {
       total_construction_tenders: totalCount,
       open_tenders: openCount,
       awarded_contracts: awardedCount
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get available categories
+app.get('/api/categories', (req, res) => {
+  try {
+    const { db } = require('./database');
+    const categories = db.prepare(`
+      SELECT DISTINCT category, COUNT(*) as count 
+      FROM tenders 
+      WHERE is_construction = 1 AND category IS NOT NULL
+      GROUP BY category 
+      ORDER BY count DESC
+    `).all();
+    
+    res.json({
+      success: true,
+      categories: categories
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

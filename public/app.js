@@ -66,6 +66,7 @@ const api = {
     async getTenders(filters = {}) {
         const params = new URLSearchParams();
         if (filters.state && filters.state !== 'ALL') params.set('state', filters.state);
+        if (filters.category && filters.category !== 'ALL') params.set('category', filters.category);
         params.set('limit', filters.limit || 200);
         
         const response = await fetch(`/api/tenders?${params}`);
@@ -75,6 +76,12 @@ const api = {
     
     async getStats() {
         const response = await fetch('/api/stats');
+        const data = await response.json();
+        return data;
+    },
+    
+    async getCategories() {
+        const response = await fetch('/api/categories');
         const data = await response.json();
         return data;
     },
@@ -296,7 +303,7 @@ function StatsGrid({ tenders, loading }) {
     );
 }
 
-function ControlsPanel({ filters, setFilters, onRefresh, onExport, loading, tendersCount }) {
+function ControlsPanel({ filters, setFilters, onRefresh, onExport, loading, tendersCount, categories }) {
     return (
         <div className="controls-panel">
             <div className="controls-header">
@@ -337,6 +344,24 @@ function ControlsPanel({ filters, setFilters, onRefresh, onExport, loading, tend
                 
                 <div className="control-group">
                     <label className="control-label">
+                        <span className="mdi mdi-shape"></span> Project Category
+                    </label>
+                    <select
+                        className="control-select"
+                        value={filters.category}
+                        onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+                    >
+                        <option value="ALL">All Categories</option>
+                        {categories.map(cat => (
+                            <option key={cat.category} value={cat.category}>
+                                {cat.category} ({cat.count})
+                            </option>
+                        ))}
+                    </select>
+                </div>
+                
+                <div className="control-group">
+                    <label className="control-label">
                         <span className="mdi mdi-map-marker"></span> State/Territory
                     </label>
                     <select
@@ -358,28 +383,26 @@ function ControlsPanel({ filters, setFilters, onRefresh, onExport, loading, tend
                 
                 <div className="control-group">
                     <label className="control-label">
-                        <span className="mdi mdi-currency-usd"></span> Minimum Value
+                        <span className="mdi mdi-currency-usd"></span> Min-Max Value
                     </label>
-                    <input
-                        type="number"
-                        className="control-input"
-                        placeholder="$0"
-                        value={filters.minValue}
-                        onChange={(e) => setFilters({ ...filters, minValue: e.target.value })}
-                    />
-                </div>
-                
-                <div className="control-group">
-                    <label className="control-label">
-                        <span className="mdi mdi-currency-usd"></span> Maximum Value
-                    </label>
-                    <input
-                        type="number"
-                        className="control-input"
-                        placeholder="No limit"
-                        value={filters.maxValue}
-                        onChange={(e) => setFilters({ ...filters, maxValue: e.target.value })}
-                    />
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <input
+                            type="number"
+                            className="control-input"
+                            placeholder="Min"
+                            value={filters.minValue}
+                            onChange={(e) => setFilters({ ...filters, minValue: e.target.value })}
+                            style={{ width: '50%' }}
+                        />
+                        <input
+                            type="number"
+                            className="control-input"
+                            placeholder="Max"
+                            value={filters.maxValue}
+                            onChange={(e) => setFilters({ ...filters, maxValue: e.target.value })}
+                            style={{ width: '50%' }}
+                        />
+                    </div>
                 </div>
             </div>
         </div>
@@ -865,9 +888,11 @@ function Dashboard() {
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [lastUpdate, setLastUpdate] = useState(null);
     const [toast, setToast] = useState(null);
+    const [categories, setCategories] = useState([]);
     const [filters, setFilters] = useState({
         search: '',
         state: 'ALL',
+        category: 'ALL',
         minValue: '',
         maxValue: ''
     });
@@ -894,7 +919,19 @@ function Dashboard() {
     
     useEffect(() => {
         loadTenders();
+        loadCategories();
     }, []);
+    
+    const loadCategories = async () => {
+        try {
+            const data = await api.getCategories();
+            if (data.success) {
+                setCategories(data.categories);
+            }
+        } catch (error) {
+            console.error('Error loading categories:', error);
+        }
+    };
     
     useEffect(() => {
         let filtered = [...tenders];
@@ -970,6 +1007,7 @@ function Dashboard() {
                             onExport={handleExport}
                             loading={loading}
                             tendersCount={filteredTenders.length}
+                            categories={categories}
                         />
                         
                         <TenderList

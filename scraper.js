@@ -1,12 +1,30 @@
 const https = require('https');
 const { upsertTender } = require('./database');
 
-// Construction-related keywords
+// Specific infrastructure & construction keywords
 const CONSTRUCTION_KEYWORDS = [
-  'construction', 'building', 'infrastructure', 'road', 'bridge',
-  'civil works', 'demolition', 'renovation', 'refurbishment',
-  'fit-out', 'fitout', 'structural', 'architectural', 'site works',
-  'earthworks', 'concrete', 'steel', 'fabrication', 'installation'
+  // Infrastructure
+  'infrastructure', 'civil works', 'civil engineering',
+  
+  // Roads & Transport
+  'road', 'highway', 'motorway', 'bridge', 'tunnel', 'airport', 'runway',
+  
+  // Buildings
+  'construction', 'building', 'hospital', 'school', 'university', 'education facility',
+  'health facility', 'medical centre',
+  
+  // Defence
+  'defence', 'defense', 'military', 'base', 'barracks',
+  
+  // Utilities & Services
+  'drainage', 'stormwater', 'sewer', 'water treatment', 'wastewater',
+  
+  // Landscaping & Site
+  'landscaping', 'earthworks', 'site works', 'ground works',
+  
+  // Structural
+  'structural', 'demolition', 'renovation', 'refurbishment',
+  'fit-out', 'fitout', 'architectural'
 ];
 
 function isConstructionRelated(text) {
@@ -15,13 +33,54 @@ function isConstructionRelated(text) {
   return CONSTRUCTION_KEYWORDS.some(keyword => lower.includes(keyword));
 }
 
+function categorizeProject(title, description) {
+  const text = (title + ' ' + description).toLowerCase();
+  
+  // Priority categories (most specific first)
+  if (text.match(/defence|defense|military|base|barracks/i)) 
+    return 'Defence';
+  
+  if (text.match(/airport|runway|aviation/i)) 
+    return 'Airports & Aviation';
+  
+  if (text.match(/hospital|health|medical centre|clinic/i)) 
+    return 'Hospitals & Healthcare';
+  
+  if (text.match(/school|university|education|campus|college/i)) 
+    return 'Schools & Education';
+  
+  if (text.match(/road|highway|motorway|street|pavement/i)) 
+    return 'Roads & Highways';
+  
+  if (text.match(/bridge|tunnel|overpass/i)) 
+    return 'Bridges & Tunnels';
+  
+  if (text.match(/drainage|stormwater|sewer|wastewater|water treatment/i)) 
+    return 'Drainage & Water';
+  
+  if (text.match(/landscaping|park|garden|ground works/i)) 
+    return 'Landscaping';
+  
+  if (text.match(/rail|train|metro|light rail/i)) 
+    return 'Rail';
+  
+  if (text.match(/building|facility|construction/i)) 
+    return 'Buildings & Facilities';
+  
+  if (text.match(/civil works|civil engineering|infrastructure/i)) 
+    return 'Civil & Infrastructure';
+  
+  return 'General Construction';
+}
+
 function fetchAusTender() {
   return new Promise((resolve, reject) => {
-    // Fetch last 21 days (AusTender has data)
-    const endDate = '2026-02-06T23:59:59Z';
-    const startDate = '2026-01-15T00:00:00Z';
+    // Fetch last 60 days for more data
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 60);
     
-    const url = `https://api.tenders.gov.au/ocds/findByDates/contractPublished/${startDate}/${endDate}`;
+    const url = `https://api.tenders.gov.au/ocds/findByDates/contractPublished/${startDate.toISOString().split('.')[0]}Z/${endDate.toISOString().split('.')[0]}Z`;
     
     console.log(`[${new Date().toISOString()}] Fetching AusTender...`);
     
@@ -52,18 +111,16 @@ function fetchAusTender() {
             const description = contract.description || '';
             const isConstruction = isConstructionRelated(title) || isConstructionRelated(description);
             
-            if (isConstruction) constructionCount++;
+            if (!isConstruction) return; // Skip non-construction
+            
+            constructionCount++;
             
             // Determine state from buyer or supplier address
             const state = buyer?.address?.region || supplier?.address?.region || null;
             const locality = buyer?.address?.locality || supplier?.address?.locality || null;
             
-            // Category based on description keywords
-            let category = 'General';
-            if (description.toLowerCase().includes('road')) category = 'Roads';
-            else if (description.toLowerCase().includes('building')) category = 'Buildings';
-            else if (description.toLowerCase().includes('bridge')) category = 'Infrastructure';
-            else if (description.toLowerCase().includes('defence')) category = 'Defence';
+            // Smart categorization
+            const category = categorizeProject(title, description);
             
             try {
               upsertTender.run(
