@@ -1,0 +1,17 @@
+{
+  "name": "visionex-tender-portal",
+  "version": "1.0.0",
+  "description": "Australian construction tender tracker",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "scrape": "node scraper.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.6.0",
+    "cors": "^2.8.6",
+    "express": "^4.22.1",
+    "node-cron": "^3.0.3"
+  }
+}
