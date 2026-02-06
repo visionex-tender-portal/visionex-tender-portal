@@ -2,8 +2,16 @@ const express = require('express');
 const cors = require('cors');
 const cron = require('node-cron');
 const path = require('path');
-const { getRecentTenders, getTendersByState, getTenderCount } = require('./database');
+const { 
+  getRecentTenders, 
+  getOpenTenders,
+  getAwardedTenders,
+  getTendersByState, 
+  getTenderCount,
+  getOpenTenderCount
+} = require('./database');
 const { fetchAusTender } = require('./scraper');
+const { fetchAllTenders } = require('./scraper-open');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -13,13 +21,21 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // API Routes
+
+// Get all tenders (mixed open + awarded)
 app.get('/api/tenders', (req, res) => {
-  const limit = parseInt(req.query.limit) || 50;
+  const limit = parseInt(req.query.limit) || 100;
   const state = req.query.state;
+  const status = req.query.status; // 'open', 'awarded', or 'all'
   
   try {
     let tenders;
-    if (state && state !== 'ALL') {
+    
+    if (status === 'open') {
+      tenders = getOpenTenders.all(limit);
+    } else if (status === 'awarded') {
+      tenders = getAwardedTenders.all(limit);
+    } else if (state && state !== 'ALL') {
       tenders = getTendersByState.all(state, limit);
     } else {
       tenders = getRecentTenders.all(limit);
@@ -30,7 +46,10 @@ app.get('/api/tenders', (req, res) => {
       count: tenders.length,
       tenders: tenders.map(t => ({
         ...t,
-        value_amount: parseFloat(t.value_amount)
+        value_amount: parseFloat(t.value_amount),
+        is_open: t.tender_status === 'open',
+        days_until_close: t.closing_date ? 
+          Math.ceil((new Date(t.closing_date) - new Date()) / (1000 * 60 * 60 * 24)) : null
       }))
     });
   } catch (error) {
@@ -38,22 +57,35 @@ app.get('/api/tenders', (req, res) => {
   }
 });
 
+// Get statistics
 app.get('/api/stats', (req, res) => {
   try {
-    const { count } = getTenderCount.get();
+    const { count: totalCount } = getTenderCount.get();
+    const { count: openCount } = getOpenTenderCount.get();
+    const awardedCount = totalCount - openCount;
+    
     res.json({
       success: true,
-      total_construction_tenders: count
+      total_construction_tenders: totalCount,
+      open_tenders: openCount,
+      awarded_contracts: awardedCount
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
+// Manual scrape trigger
 app.post('/api/scrape', async (req, res) => {
   try {
-    const result = await fetchAusTender();
-    res.json({ success: true, ...result });
+    const result = await fetchAllTenders();
+    res.json({ 
+      success: true, 
+      total: result.total,
+      open: result.open,
+      awarded: result.awarded,
+      construction: result.total
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -61,14 +93,14 @@ app.post('/api/scrape', async (req, res) => {
 
 // Run initial scrape on startup
 console.log('🚀 Starting Visionex Tender Portal...');
-fetchAusTender()
-  .then(result => console.log('✅ Initial scrape complete:', result))
+fetchAllTenders()
+  .then(result => console.log(`✅ Initial scrape complete:`, result))
   .catch(e => console.error('❌ Initial scrape failed:', e.message));
 
 // Schedule scraping every 30 minutes
 cron.schedule('*/30 * * * *', () => {
   console.log(`[${new Date().toISOString()}] Running scheduled scrape...`);
-  fetchAusTender()
+  fetchAllTenders()
     .then(result => console.log('✅ Scheduled scrape complete:', result))
     .catch(e => console.error('❌ Scheduled scrape failed:', e.message));
 });
