@@ -10,8 +10,7 @@ const {
   getTenderCount,
   getOpenTenderCount
 } = require('./database');
-const { fetchAusTender } = require('./scraper');
-const { fetchAllTenders } = require('./scraper-open');
+const { scrapeAll } = require('./scrapers/orchestrator');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -105,13 +104,14 @@ app.get('/api/categories', (req, res) => {
 // Manual scrape trigger
 app.post('/api/scrape', async (req, res) => {
   try {
-    const result = await fetchAllTenders();
+    const { stats } = await scrapeAll();
     res.json({ 
       success: true, 
-      total: result.total,
-      open: result.open,
-      awarded: result.awarded,
-      construction: result.total
+      total: stats.totalTenders,
+      open: stats.openTenders,
+      awarded: stats.awardedContracts,
+      construction: stats.totalTenders,
+      sources: stats.successful
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -120,15 +120,15 @@ app.post('/api/scrape', async (req, res) => {
 
 // Run initial scrape on startup
 console.log('🚀 Starting Visionex Tender Portal...');
-fetchAllTenders()
-  .then(result => console.log(`✅ Initial scrape complete:`, result))
+scrapeAll()
+  .then(({ stats }) => console.log(`✅ Initial scrape complete: ${stats.totalTenders} tenders from ${stats.successful} sources`))
   .catch(e => console.error('❌ Initial scrape failed:', e.message));
 
 // Schedule scraping every 30 minutes
 cron.schedule('*/30 * * * *', () => {
   console.log(`[${new Date().toISOString()}] Running scheduled scrape...`);
-  fetchAllTenders()
-    .then(result => console.log('✅ Scheduled scrape complete:', result))
+  scrapeAll()
+    .then(({ stats }) => console.log(`✅ Scheduled scrape complete: ${stats.totalTenders} tenders from ${stats.successful} sources`))
     .catch(e => console.error('❌ Scheduled scrape failed:', e.message));
 });
 
