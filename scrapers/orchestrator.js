@@ -8,10 +8,10 @@ const { fetchNSWTenders } = require('./nsw');
 // More sources will be added as they're implemented
 
 const ALL_SOURCES = [
-  { name: 'AusTender', module: fetchAusTender, enabled: true, priority: 1 },
-  { name: 'NSW eTendering', module: fetchNSWTenders, enabled: false, priority: 2 },
-  // { name: 'VIC Tenders', module: fetchVICTenders, enabled: false, priority: 2 },
-  // { name: 'QLD QTenders', module: fetchQLDTenders, enabled: false, priority: 2 },
+  { name: 'AusTender', module: fetchAusTender, enabled: true, priority: 1, type: 'api' },
+  { name: 'NSW eTendering', module: fetchNSWTenders, enabled: false, priority: 2, type: 'browser' }, // Ready for testing (node scrapers/nsw.js)
+  // { name: 'VIC Tenders', module: fetchVICTenders, enabled: false, priority: 3, type: 'browser' },
+  // { name: 'QLD QTenders', module: fetchQLDTenders, enabled: false, priority: 4, type: 'browser' },
   // etc.
 ];
 
