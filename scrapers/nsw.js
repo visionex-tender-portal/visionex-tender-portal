@@ -46,8 +46,8 @@ async function fetchNSWTenders(options = {}) {
     // Set user agent to avoid detection
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     
-    // NSW eTendering search URL with construction filter
-    const searchUrl = 'https://tenders.nsw.gov.au/?event=public.search.keyword&keyword=construction';
+    // NSW buy.nsw search URL with construction filter
+    const searchUrl = 'https://buy.nsw.gov.au/search?query=construction';
     
     console.log(`[NSW] Navigating to ${searchUrl}...`);
     await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 });
@@ -101,7 +101,7 @@ async function fetchNSWTenders(options = {}) {
       }
       
       await nextButton.click();
-      await page.waitForTimeout(2000);
+      await new Promise(resolve => setTimeout(resolve(2000);
     }
     
     console.log(`[NSW] Total tenders found: ${results.tenders.length}`);
@@ -184,7 +184,7 @@ async function fetchNSWTenders(options = {}) {
       }
       
       // Small delay to be respectful
-      await page.waitForTimeout(500);
+      await new Promise(resolve => setTimeout(resolve(500);
     }
     
     console.log(`[NSW] Processed ${results.total} construction tenders (${results.open} open, ${results.awarded} awarded)`);
@@ -205,7 +205,7 @@ module.exports = { fetchNSWTenders };
 
 // Test if run directly
 if (require.main === module) {
-  fetchNSWTenders({ headless: false, maxPages: 2 })
+  fetchNSWTenders({ headless: true, maxPages: 2 })
     .then(result => {
       console.log('\n=== NSW Scraper Result ===');
       console.log(`Total: ${result.total}`);
